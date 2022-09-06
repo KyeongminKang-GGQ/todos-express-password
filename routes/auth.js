@@ -122,6 +122,7 @@ router.post("/login/password", function (req, res, next) {
     },
   })
     .then((response) => {
+      console.log(`Login success headers: `, response.headers);
       console.log(`Login success: `, response.data);
       res.redirect("/");
     })
@@ -136,12 +137,18 @@ router.post("/login/password", function (req, res, next) {
  * This route logs the user out.
  */
 router.post("/logout", function (req, res, next) {
-  req.logout(function (err) {
-    if (err) {
-      return next(err);
-    }
-    res.redirect("/");
-  });
+  axios({
+    method: "post",
+    url: "http://localhost:3000/auth/v1/sign-out",
+  })
+    .then((response) => {
+      console.log(`Logout success: `, response);
+      res.redirect("/");
+    })
+    .catch((err) => {
+      console.log(`Logout error: `, err.response.data);
+      res.redirect("/");
+    });
 });
 
 /* GET /signup
