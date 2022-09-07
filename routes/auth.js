@@ -16,43 +16,43 @@ var axios = require("axios");
  * the hashed password stored in the database.  If the comparison succeeds, the
  * user is authenticated; otherwise, not.
  */
-passport.use(
-  new LocalStrategy(function verify(username, password, cb) {
-    db.get(
-      "SELECT * FROM users WHERE username = ?",
-      [username],
-      function (err, row) {
-        if (err) {
-          return cb(err);
-        }
-        if (!row) {
-          return cb(null, false, {
-            message: "Incorrect username or password.",
-          });
-        }
+// passport.use(
+//   new LocalStrategy(function verify(username, password, cb) {
+//     db.get(
+//       "SELECT * FROM users WHERE username = ?",
+//       [username],
+//       function (err, row) {
+//         if (err) {
+//           return cb(err);
+//         }
+//         if (!row) {
+//           return cb(null, false, {
+//             message: "Incorrect username or password.",
+//           });
+//         }
 
-        crypto.pbkdf2(
-          password,
-          row.salt,
-          310000,
-          32,
-          "sha256",
-          function (err, hashedPassword) {
-            if (err) {
-              return cb(err);
-            }
-            if (!crypto.timingSafeEqual(row.hashed_password, hashedPassword)) {
-              return cb(null, false, {
-                message: "Incorrect username or password.",
-              });
-            }
-            return cb(null, row);
-          }
-        );
-      }
-    );
-  })
-);
+//         crypto.pbkdf2(
+//           password,
+//           row.salt,
+//           310000,
+//           32,
+//           "sha256",
+//           function (err, hashedPassword) {
+//             if (err) {
+//               return cb(err);
+//             }
+//             if (!crypto.timingSafeEqual(row.hashed_password, hashedPassword)) {
+//               return cb(null, false, {
+//                 message: "Incorrect username or password.",
+//               });
+//             }
+//             return cb(null, row);
+//           }
+//         );
+//       }
+//     );
+//   })
+// );
 
 /* Configure session management.
  *
@@ -69,17 +69,17 @@ passport.use(
  * fetch todo records and render the user element in the navigation bar, that
  * information is stored in the session.
  */
-passport.serializeUser(function (user, cb) {
-  process.nextTick(function () {
-    cb(null, { id: user.id, username: user.username });
-  });
-});
+// passport.serializeUser(function (user, cb) {
+//   process.nextTick(function () {
+//     cb(null, { id: user.id, username: user.username });
+//   });
+// });
 
-passport.deserializeUser(function (user, cb) {
-  process.nextTick(function () {
-    return cb(null, user);
-  });
-});
+// passport.deserializeUser(function (user, cb) {
+//   process.nextTick(function () {
+//     return cb(null, user);
+//   });
+// });
 
 var router = express.Router();
 
@@ -92,7 +92,8 @@ var router = express.Router();
  * sent to the `POST /login/password` route.
  */
 router.get("/login", function (req, res, next) {
-  res.render("login");
+  console.log(`render login`);
+  res.render("login", { messages: req.flash("messages") });
 });
 
 /* POST /login/password
@@ -112,15 +113,18 @@ router.get("/login", function (req, res, next) {
  * a message informing them of what went wrong.
  */
 router.post("/login/password", function (req, res, next) {
-  axios({
-    method: "post",
-    url: "http://localhost:3000/auth/v1/sign-in",
-    params: {
-      email: req.body.username,
-      password: req.body.password,
-      client: "WEB",
-    },
-  })
+  axios
+    .post(
+      "http://localhost:3000/auth/v1/sign-in",
+      {
+        email: req.body.username,
+        password: req.body.password,
+        client: "WEB",
+      },
+      {
+        withCredentials: true,
+      }
+    )
     .then((response) => {
       console.log(`Login success headers: `, response.headers);
       console.log(`Login success: `, response.data);
@@ -128,6 +132,7 @@ router.post("/login/password", function (req, res, next) {
     })
     .catch((err) => {
       console.log(`Login error: `, err.response.data);
+      req.flash("messages", "로그인 실패");
       res.redirect("/login");
     });
 });
