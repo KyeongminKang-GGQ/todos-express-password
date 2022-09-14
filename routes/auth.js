@@ -1,9 +1,19 @@
 var express = require("express");
 var passport = require("passport");
 var LocalStrategy = require("passport-local");
+var GoogleStrategoy = require("passport-google-oauth20").Strategy;
 var crypto = require("crypto");
 var db = require("../db");
 var axios = require("axios");
+
+const instance = axios.create({
+  headers: {
+    "Access-Control-Allow-Origin": "http://localhost:3000", // 서버 domain
+  },
+  withCredentials: true,
+});
+
+axios.defaults.withCredentials = true;
 
 /* Configure password authentication strategy.
  *
@@ -54,6 +64,27 @@ var axios = require("axios");
 //   })
 // );
 
+passport.use(
+  new GoogleStrategoy(
+    {
+      clientID:
+        "61660663640-3mtk3ple6f9dv2tuohq7fj5imm6vfs00.apps.googleusercontent.com",
+      clientSecret: "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",
+      callbackURL: "http://localhost:3000/oauth",
+    },
+    (accessToken, refreshToken, profile, done) => {
+      console.log(accessToken);
+      console.log(refreshToken);
+      console.log(profile);
+      const user = {
+        provider: "google",
+        id: profile.id,
+      };
+      return done(null, user);
+    }
+  )
+);
+
 /* Configure session management.
  *
  * When a login session is established, information about the user will be
@@ -69,17 +100,19 @@ var axios = require("axios");
  * fetch todo records and render the user element in the navigation bar, that
  * information is stored in the session.
  */
-// passport.serializeUser(function (user, cb) {
-//   process.nextTick(function () {
-//     cb(null, { id: user.id, username: user.username });
-//   });
-// });
+passport.serializeUser(function (user, cb) {
+  process.nextTick(function () {
+    console.log(`serializeUser: ${JSON.stringify(user)}`);
+    cb(null, { id: user.id });
+  });
+});
 
-// passport.deserializeUser(function (user, cb) {
-//   process.nextTick(function () {
-//     return cb(null, user);
-//   });
-// });
+passport.deserializeUser(function (user, cb) {
+  process.nextTick(function () {
+    console.log(`deserializeUser: ${JSON.stringify(user)}`);
+    return cb(null, user);
+  });
+});
 
 var router = express.Router();
 
@@ -92,9 +125,21 @@ var router = express.Router();
  * sent to the `POST /login/password` route.
  */
 router.get("/login", function (req, res, next) {
-  console.log(`render login`);
+  console.log(`render /login`);
   res.render("login", { messages: req.flash("messages") });
 });
+
+router.get("/login/google", function (req, res, next) {
+  console.log(`render /login/google`);
+  instance
+    .get("http://localhost:3000/auth/v1/sign-in/google", {
+      withCredentials: true, // 쿠키 cors 통신 설정
+    })
+    .then((response) => {})
+    .catch((err) => {});
+});
+
+// router.get("/login/kakao", passport.authenticate("google"));
 
 /* POST /login/password
  *
@@ -113,7 +158,9 @@ router.get("/login", function (req, res, next) {
  * a message informing them of what went wrong.
  */
 router.post("/login/password", function (req, res, next) {
-  axios
+  console.log(req.session);
+
+  instance
     .post(
       "http://localhost:3000/auth/v1/sign-in",
       {
@@ -122,15 +169,25 @@ router.post("/login/password", function (req, res, next) {
         client: "WEB",
       },
       {
-        withCredentials: true,
+        headers: {
+          Cookie: "testCookie:abcdef;",
+        },
+        withCredentials: true, // 쿠키 cors 통신 설정
       }
     )
     .then((response) => {
       console.log(`Login success headers: `, response.headers);
       console.log(`Login success: `, response.data);
+
+      const userId = response.data.userId;
+      console.log(`Login userId: `, userId);
+      console.log(res.session);
+      req.app.locals.user = { id: userId };
       res.redirect("/");
     })
     .catch((err) => {
+      console.log(`Login error`);
+      console.log(`Login error headers: `, err.response.headers);
       console.log(`Login error: `, err.response.data);
       req.flash("messages", "로그인 실패");
       res.redirect("/login");

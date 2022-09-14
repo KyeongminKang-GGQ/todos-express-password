@@ -30,7 +30,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(
   session({
-    secret: "keyboard cat",
+    secret: "cookieSecret",
     resave: false, // don't save session if unmodified
     saveUninitialized: false, // don't create session until something stored
     store: new SQLiteStore({ db: "sessions.db", dir: "./var/db" }),
@@ -47,6 +47,10 @@ app.use(csrf());
 //   req.session.messages = [];
 //   next();
 // });
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use(function (req, res, next) {
   res.locals.csrfToken = req.csrfToken();
   next();
@@ -70,5 +74,17 @@ app.use(function (err, req, res, next) {
   res.status(err.status || 500);
   res.render("error");
 });
+
+module.exports = {
+  devServer: {
+    proxy: {
+      "/api": {
+        target: "https://localhost:3000",
+        changeOrigin: true,
+        pathRewrite: { "^/auth": "" },
+      },
+    },
+  },
+};
 
 module.exports = app;
